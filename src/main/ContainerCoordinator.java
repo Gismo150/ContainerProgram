@@ -8,13 +8,13 @@ import utils.ProcessHelper;
 import java.util.ArrayList;
 import java.util.List;
 
-public class Program {
+public class ContainerCoordinator {
     private ProcessBuilder processBuilder;
     private ArrayList<String> errorMessages;
     private ArrayList<String> conanDependencies;
     private String localBuildStatus = "UNKNOWN";
 
-    public Program() {
+    public ContainerCoordinator() {
         processBuilder = new ProcessBuilder();
         errorMessages = new ArrayList<>();
         conanDependencies = new ArrayList<>();

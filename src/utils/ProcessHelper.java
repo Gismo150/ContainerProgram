@@ -1,6 +1,6 @@
 package utils;
 
-import main.Program;
+import main.ContainerCoordinator;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -8,7 +8,7 @@ import java.io.InputStreamReader;
 
 public class ProcessHelper {
 
-    public static int executeProcess(ProcessBuilder processBuilder, Program program) {
+    public static int executeProcess(ProcessBuilder processBuilder, ContainerCoordinator containerCoordinator) {
         try {
             Process process = processBuilder.start();
 
@@ -19,7 +19,7 @@ public class ProcessHelper {
             while ((line = reader.readLine()) != null) {
                 System.out.println(line);
                 if(line.contains("Downloaded recipe")) {
-                    program.getConanDependencies().add(line.substring(0, line.indexOf(":")));
+                    containerCoordinator.getConanDependencies().add(line.substring(0, line.indexOf(":")));
                 }
             }
 
@@ -28,7 +28,7 @@ public class ProcessHelper {
 
             String line2;
             while ((line2 = reader2.readLine()) != null) {
-                program.getErrorMessages().add(line2);
+                containerCoordinator.getErrorMessages().add(line2);
             }
 
             return process.waitFor();

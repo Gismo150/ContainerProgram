@@ -4,7 +4,7 @@ package main;
  *
  * @author Daniel Braun
  */
-public class MainProgram {
+public class MainContainerCoordinator {
 
     public static void main(String[] args) {
 
@@ -14,7 +14,7 @@ public class MainProgram {
             try {
                 int arrayIndex = Integer.parseInt(args[0]);
                 if(arrayIndex >= 0) {
-                    new Program().run(arrayIndex);
+                    new ContainerCoordinator().run(arrayIndex);
                 } else {
                     System.err.println("Number must be greater or equals 0.");
                     System.err.println("Aborting.");
