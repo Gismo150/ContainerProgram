@@ -95,14 +95,13 @@ public class ContainerCoordinator {
             }
             System.out.println("----------------------------------------------------");
 
-            System.out.println("RUNNING: CMAKE PREPARATION"); // But of course it makes sense to compile your source code into LLVM IR using the production flags in order to ensure that PhASAR analyzes the code "as your machine sees it".
+            System.out.println("RUNNING: CMAKE PREPARATION");
             processBuilder.command("bash", "-c", "export LLVM_COMPILER=clang && export CC=wllvm && export CXX=wllvm++ " +
                     "&& cd " + Config.CONTAINERPATH + "/" + rMetaData.getName() + "/build " +
                     "&& cmake -G \"Unix Makefiles\" -DCMAKE_BUILD_TYPE=Release" +
                     " -DCMAKE_RUNTIME_OUTPUT_DIRECTORY=" + Config.CONTAINERPATH +  "/" + rMetaData.getName() + "/buildDest/exe " +
                     "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=" + Config.CONTAINERPATH +  "/" + rMetaData.getName() + "/buildDest/lib " +
                     "-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY=" + Config.CONTAINERPATH +  "/" + rMetaData.getName() + "/buildDest/ar ..");
-            //TODO: remove these commands within the CmakeLists.txt file! otherwise these are not overwritten by the cmd at runtime
             int exitVal3 = ProcessHelper.executeProcess(processBuilder, this);
             if (exitVal3 == 0) {
                 System.out.println("FINISHED: CMAKE PREPARATION");
@@ -114,6 +113,7 @@ public class ContainerCoordinator {
             System.out.println("----------------------------------------------------");
             if(exitVal3 == 0) {
                 System.out.println("RUNNING: CMAKE BUILD");
+                //NOTE: the environment variables must be set again for each subprocess. Any environment variable set is "lost" again when the subprocess exits!
                 processBuilder.command("bash", "-c", "export LLVM_COMPILER=clang && export CC=wllvm && export CXX=wllvm++ && cd " + Config.CONTAINERPATH + "/" + rMetaData.getName() + "/build && cmake --build .");
                 int exitVal4 = ProcessHelper.executeProcess(processBuilder, this);
                 if (exitVal4 == 0) {
