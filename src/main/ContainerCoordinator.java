@@ -5,16 +5,27 @@ import utils.FileHelper;
 import utils.JsonReader;
 import utils.JsonWriter;
 import utils.ProcessHelper;
+
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
+import java.util.logging.Logger;
 
 public class ContainerCoordinator {
     private ProcessBuilder processBuilder;
     private ArrayList<String> errorMessages;
     private ArrayList<String> conanDependencies;
     private String localBuildStatus = "UNKNOWN";
+    private Logger logger;
+    private long startTime;
+    private String systemStartTime;
 
-    public ContainerCoordinator() {
+    public ContainerCoordinator(Logger logger, long startTime, String systemStartTime) {
+        this.logger = logger;
+        this.startTime = startTime;
+        this.systemStartTime = systemStartTime;
         processBuilder = new ProcessBuilder();
         errorMessages = new ArrayList<>();
         conanDependencies = new ArrayList<>();
@@ -23,7 +34,12 @@ public class ContainerCoordinator {
     public void run(int arrayIndex) {
         JsonReader.getInstance().checkArgInRange(arrayIndex);
 
-        RMetaData rMetaData = JsonReader.getInstance().deserializeRepositoryFromJsonArray(arrayIndex); //TODO is this called serialize?
+
+        RMetaData rMetaData = JsonReader.getInstance().deserializeRepositoryFromJsonArray(arrayIndex);
+
+        logger.info("-----------------------------------");
+        logger.info("Running container pipeline at index: "+ arrayIndex + "for repository with id/owner/name: " + rMetaData.getId() + "/" + rMetaData.getOwner() + "/" + rMetaData.getName());
+        //long startTimeDockerExe   = System.nanoTime();
 
         cloneRepository(rMetaData);
         compile(rMetaData);
@@ -36,6 +52,28 @@ public class ContainerCoordinator {
         rMetaData.setErrorMessage(errorMessages);
         updateMetaData(rMetaData, arrayIndex);
 
+/*
+        long endTimeDockerExe   = System.nanoTime();
+        long durationDockerExe = endTimeDockerExe - startTimeDockerExe;
+        logger.info("Overall execution time in seconds: " + TimeUnit.NANOSECONDS.toSeconds(durationDockerExe));
+        logger.info("Overall execution time in minutes: " + (double)TimeUnit.NANOSECONDS.toSeconds(durationDockerExe)/60);
+
+*/
+
+        Calendar calendar = Calendar.getInstance();
+        SimpleDateFormat formatter = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss");
+        long endTime   = System.nanoTime();
+        long duration = endTime - startTime;
+
+        //logger.info("-----------------------------------");
+        logger.info("ContainerCoordinator started at: " + systemStartTime);
+        logger.info("ContainerCoordinator terminated at: " + formatter.format(calendar.getTime()));
+        logger.info("Overall execution time in seconds: " + TimeUnit.NANOSECONDS.toSeconds(duration));
+        logger.info("Overall execution time in minutes: " + (double)TimeUnit.NANOSECONDS.toSeconds(duration)/60);
+        logger.info("Overall execution time in hours: " + (double)TimeUnit.NANOSECONDS.toSeconds(duration)/3600);
+        logger.info("ContainerCoordinator finished. Shutting down");
+
+
         System.out.println("PRINTING ERRORMESSAGES");
         for(String s: errorMessages)
             System.err.println(s);
@@ -47,55 +85,86 @@ public class ContainerCoordinator {
     }
 
     private void cloneRepository(RMetaData rMetaData) {
+        long startTimeCloning   = System.nanoTime();
         processBuilder.command("bash", "-c", "cd " + Config.CONTAINERPATH + " && git clone " + rMetaData.getCloneUrl() + " 2>&1");
         int exitVal = ProcessHelper.executeProcess(processBuilder, this);
         if (exitVal == 0) {
             System.out.println("Cloning finished");
+            logger.info("FINISHED: CLONING");
         } else {
             System.err.println("Failed to clone the repository!");
             errorMessages.add("Failed to clone the repository!");
+            logger.severe("FAILED: CLONING");
         }
+        long endTimeCloning  = System.nanoTime();
+        long durationCloning = endTimeCloning - startTimeCloning;
+        logger.info("Cloning took " + TimeUnit.NANOSECONDS.toSeconds(durationCloning) + "seconds - Repository size: " + rMetaData.getSize());
 
 
+
+        long startTimeReset   = System.nanoTime();
         processBuilder.command("bash", "-c", "cd " + Config.CONTAINERPATH + "/" +rMetaData.getName()+" && git reset --hard " + rMetaData.getLatestCommitId());
         int exitVal1 = ProcessHelper.executeProcess(processBuilder, this);
         if (exitVal1== 0) {
             System.out.println("Reset current working tree to commit id: " +rMetaData.getLatestCommitId());
+            logger.info("FINISHED: RESET WORKING TREE");
         } else {
             System.err.println("Failed to reset the current working tree to commit id: "+rMetaData.getLatestCommitId());
             errorMessages.add("Failed to reset the current working tree to commit id: "+rMetaData.getLatestCommitId());
+            logger.severe("FAILED: RESET WORKING TREE");
         }
+        long endTimeReset = System.nanoTime();
+        long durationReset = endTimeReset - startTimeReset;
+        logger.info("Resetting working tree took " + TimeUnit.NANOSECONDS.toSeconds(durationReset) + "seconds");
+
         System.out.println("----------------------------------------------------");
     }
 
     private void compile(RMetaData rMetaData) {
 
-    System.out.println("RUNNING: CONAN INSTALL");                                                       //Delete existing build folder, making sure we are building everything from scratch.
+        System.out.println("RUNNING: CONAN INSTALL");
+        //Delete existing build folder, making sure we are building everything from scratch.
+        long startTimeConan   = System.nanoTime();
         processBuilder.command("bash", "-c", "cd " + Config.CONTAINERPATH + "/" + rMetaData.getName() + " && rm -f -r build && mkdir build && cd build && yes y | conan install .. -pr=clang --build=missing");
         int exitVal1 = ProcessHelper.executeProcess(processBuilder, this);
         if (exitVal1 == 0) {
             System.out.println("FINISHED: CONAN INSTALL");
+            logger.info("FINISHED: CONAN INSTALL");
         } else {
             System.err.println("FAILED: CONAN INSTALL");
             rMetaData.setBuildStatus("FAILED");
             errorMessages.add("FAILED: CONAN INSTALL");
+            logger.severe("FAILED: CONAN INSTALL");
         }
+        long endTimeConan = System.nanoTime();
+        long durationConan = endTimeConan - startTimeConan;
+        logger.info("Installing dependencies took" + TimeUnit.NANOSECONDS.toSeconds(durationConan) + "seconds");
+
         System.out.println("----------------------------------------------------");
 
+        long startTimeFolderPrep   = System.nanoTime();
         if (exitVal1 == 0) {
             System.out.println("RUNNING: FOLDER PREPARATION");
             processBuilder.command("bash", "-c", "cd " + Config.CONTAINERPATH +  "/" + rMetaData.getName() + " && mkdir buildDest && cd buildDest && mkdir exe && mkdir lib && mkdir ar");
             int exitVal2 = ProcessHelper.executeProcess(processBuilder, this);
             if (exitVal2 == 0) {
                 System.out.println("FINISHED: FOLDER PREPARATION");
+                logger.info("FINISHED: FOLDER PREPARATION");
             } else {
                 System.err.println("FAILED: FOLDER PREPARATION");
                 rMetaData.setBuildStatus("FAILED");
                 errorMessages.add("FAILED: FOLDER PREPARATION");
+                logger.severe("FAILED: FOLDER PREPARATION");
             }
+            long endTimeFolderPrep = System.nanoTime();
+            long durationFolderPrep = endTimeFolderPrep - startTimeFolderPrep;
+            logger.info("Build folder preparation took" + TimeUnit.NANOSECONDS.toSeconds(durationFolderPrep) + "seconds");
+
             System.out.println("----------------------------------------------------");
 
             System.out.println("RUNNING: CMAKE PREPARATION");
+
+            long startTimeCMakePrep   = System.nanoTime();
             processBuilder.command("bash", "-c", "export LLVM_COMPILER=clang && export CC=wllvm && export CXX=wllvm++ " +
                     "&& cd " + Config.CONTAINERPATH + "/" + rMetaData.getName() + "/build " +
                     "&& cmake -G \"Unix Makefiles\" -DCMAKE_BUILD_TYPE=Release" +
@@ -105,32 +174,48 @@ public class ContainerCoordinator {
             int exitVal3 = ProcessHelper.executeProcess(processBuilder, this);
             if (exitVal3 == 0) {
                 System.out.println("FINISHED: CMAKE PREPARATION");
+                logger.info("FINISHED: CMAKE PREPARATION");
             } else {
                 System.err.println("FAILED: CMAKE PREPARATION");
                 rMetaData.setBuildStatus("FAILED");
                 errorMessages.add("FAILED: CMAKE PREPARATION");
+                logger.severe("FAILED: CMAKE PREPARATION");
             }
+            long endTimeCMakePrep = System.nanoTime();
+            long durationCMakePrep = endTimeCMakePrep - startTimeCMakePrep;
+            logger.info("CMake preparation took" + TimeUnit.NANOSECONDS.toSeconds(durationCMakePrep) + "seconds");
+
             System.out.println("----------------------------------------------------");
             if(exitVal3 == 0) {
                 System.out.println("RUNNING: CMAKE BUILD");
+
+                long startTimeCMakeBuild = System.nanoTime();
                 //NOTE: the environment variables must be set again for each subprocess. Any environment variable set is "lost" again when the subprocess exits!
                 processBuilder.command("bash", "-c", "export LLVM_COMPILER=clang && export CC=wllvm && export CXX=wllvm++ && cd " + Config.CONTAINERPATH + "/" + rMetaData.getName() + "/build && cmake --build .");
                 int exitVal4 = ProcessHelper.executeProcess(processBuilder, this);
                 if (exitVal4 == 0) {
                     System.out.println("FINISHED: CMAKE BUILD");
+                    logger.info("FINISHED: CMAKE BUILD");
                     rMetaData.setBuildStatus("SUCCESS");
                     localBuildStatus = "SUCCESS";
                 } else {
                     System.err.println("FAILED: CMAKE BUILD");
                     rMetaData.setBuildStatus("FAILED");
                     errorMessages.add("FAILED: CMAKE BUILD");
+                    logger.severe("FAILED: CMAKE BUILD");
                 }
+                long endTimeCMakeBuild = System.nanoTime();
+                long durationCMakeBuild = endTimeCMakeBuild - startTimeCMakeBuild;
+                logger.info("CMake build took" + TimeUnit.NANOSECONDS.toSeconds(durationCMakeBuild) + "seconds");
+
                 System.out.println("----------------------------------------------------");
             }
         }
     }
 
     private ArrayList<String> gatherBuildTargetsAndExtractLLVMIR(RMetaData rMetaData) {
+
+        long startTimeExtractLLVMIR = System.nanoTime();
         ArrayList<String> llFilePathList = new ArrayList<>();
         List<String> lsExe;
         List<String> lsLib;
@@ -143,6 +228,7 @@ public class ContainerCoordinator {
         lsLib = FileHelper.getAllFileNamesOfDir(Config.CONTAINERPATH +  "/" + rMetaData.getName() + "/buildDest/lib");
         lsAr = FileHelper.getAllFileNamesOfDir(Config.CONTAINERPATH +  "/" + rMetaData.getName() + "/buildDest/ar");
         System.out.println("Build summary:\n" + lsExe.size() + " Executables\n" + lsLib.size() + " Libraries\n" + lsAr.size() + " Archives");
+        logger.info("Build summary:\n" + lsExe.size() + " Executables\n" + lsLib.size() + " Libraries\n" + lsAr.size() + " Archives");
         System.out.println("----------------------------------------------------");
 
         rMetaData.setExecutables(lsExe.size());
@@ -166,6 +252,9 @@ public class ContainerCoordinator {
             System.out.println(ll);
         }
         System.out.println("----------------------------------------------------");
+        long endTimeExtractLLVMIR = System.nanoTime();
+        long durationExtractLLVMIR = endTimeExtractLLVMIR - startTimeExtractLLVMIR;
+        logger.info("Extracting & disassambling all build targets into LLVM IR took " + TimeUnit.NANOSECONDS.toSeconds(durationExtractLLVMIR) + "seconds");
 
         return llFilePathList;
     }
@@ -232,6 +321,7 @@ public class ContainerCoordinator {
     }
 
     private void runAnalysis(ArrayList<String> llFileList) {
+        long startTimeAnalysis = System.nanoTime();
         System.out.println("RUNNING ANALYSIS");
         for(String llFile: llFileList) {
             processBuilder.command("bash", "-c", "umask 0000 && ./"+ Config.ANALYSISTOOL + " ./.."+ llFile + " ./.." + Config.CONTAINERPATH);
@@ -242,6 +332,10 @@ public class ContainerCoordinator {
                 System.err.println("ANALYSIS FAILED FOR: " + llFile);
             }
         }
+        long endTimeAnalysis = System.nanoTime();
+        long durationAnalysis = endTimeAnalysis - startTimeAnalysis;
+        logger.info("Analysis of all LLVM IR files took " + TimeUnit.NANOSECONDS.toSeconds(durationAnalysis) + "seconds");
+
     }
 
     private void cleanSharedDir(RMetaData rMetaData) {
