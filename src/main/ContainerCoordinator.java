@@ -234,7 +234,7 @@ public class ContainerCoordinator {
     private void runAnalysis(ArrayList<String> llFileList) {
         System.out.println("RUNNING ANALYSIS");
         for(String llFile: llFileList) {
-            processBuilder.command("bash", "-c", "umask 0000 && ./"+ Config.ANALYSISTOOL + " ./.."+ llFile + " ./.." + Config.CONTAINERPATH);
+            processBuilder.command("bash", "-c", "umask 0000 && ./"+ Config.ANALYSISTOOL + " "+ llFile + " " + Config.CONTAINERPATH);
             int exitVal = ProcessHelper.executeProcess(processBuilder, this);
             if (exitVal == 0) {
                 System.out.println("ANALYSIS SUCCESS FOR: " + llFile);
