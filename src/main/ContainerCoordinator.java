@@ -38,8 +38,7 @@ public class ContainerCoordinator {
         RMetaData rMetaData = JsonReader.getInstance().deserializeRepositoryFromJsonArray(arrayIndex);
 
         logger.info("-----------------------------------");
-        logger.info("Running container pipeline at index: "+ arrayIndex + "for repository with id/owner/name: " + rMetaData.getId() + "/" + rMetaData.getOwner() + "/" + rMetaData.getName());
-        //long startTimeDockerExe   = System.nanoTime();
+        logger.info("Running container pipeline at index: "+ arrayIndex + " for repository with id/owner/name: " + rMetaData.getId() + "/" + rMetaData.getOwner() + "/" + rMetaData.getName());
 
         cloneRepository(rMetaData);
         compile(rMetaData);
@@ -51,14 +50,6 @@ public class ContainerCoordinator {
         rMetaData.setPackageDependencies(conanDependencies);
         rMetaData.setErrorMessage(errorMessages);
         updateMetaData(rMetaData, arrayIndex);
-
-/*
-        long endTimeDockerExe   = System.nanoTime();
-        long durationDockerExe = endTimeDockerExe - startTimeDockerExe;
-        logger.info("Overall execution time in seconds: " + TimeUnit.NANOSECONDS.toSeconds(durationDockerExe));
-        logger.info("Overall execution time in minutes: " + (double)TimeUnit.NANOSECONDS.toSeconds(durationDockerExe)/60);
-
-*/
 
         Calendar calendar = Calendar.getInstance();
         SimpleDateFormat formatter = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss");
@@ -98,14 +89,27 @@ public class ContainerCoordinator {
         }
         long endTimeCloning  = System.nanoTime();
         long durationCloning = endTimeCloning - startTimeCloning;
-        logger.info("Cloning took " + TimeUnit.NANOSECONDS.toSeconds(durationCloning) + "seconds - Repository size: " + rMetaData.getSize());
+        logger.info("Cloning took " + TimeUnit.NANOSECONDS.toSeconds(durationCloning) + " seconds - Repository size: " + rMetaData.getSize());
 
-
+        long startTimeSubmodules   = System.nanoTime();
+        processBuilder.command("bash", "-c", "cd " + Config.CONTAINERPATH + "/" + rMetaData.getName() + " && git submodule update --init --recursive 2>&1");
+        int exitVal1 = ProcessHelper.executeProcess(processBuilder, this);
+        if (exitVal1 == 0) {
+            System.out.println("Cloning submodules finished");
+            logger.info("FINISHED: CLONING SUBMODULES");
+        } else {
+            System.err.println("Failed to clone the repository submodules!");
+            errorMessages.add("Failed to clone the repository submodules!");
+            logger.severe("FAILED: CLONING SUBMODULES");
+        }
+        long endTimeSubmodules  = System.nanoTime();
+        long durationSubmodules = endTimeSubmodules - startTimeSubmodules;
+        logger.info("Cloning submodules took " + TimeUnit.NANOSECONDS.toSeconds(durationSubmodules) + " seconds");
 
         long startTimeReset   = System.nanoTime();
         processBuilder.command("bash", "-c", "cd " + Config.CONTAINERPATH + "/" +rMetaData.getName()+" && git reset --hard " + rMetaData.getLatestCommitId());
-        int exitVal1 = ProcessHelper.executeProcess(processBuilder, this);
-        if (exitVal1== 0) {
+        int exitVal2 = ProcessHelper.executeProcess(processBuilder, this);
+        if (exitVal2== 0) {
             System.out.println("Reset current working tree to commit id: " +rMetaData.getLatestCommitId());
             logger.info("FINISHED: RESET WORKING TREE");
         } else {
@@ -115,7 +119,7 @@ public class ContainerCoordinator {
         }
         long endTimeReset = System.nanoTime();
         long durationReset = endTimeReset - startTimeReset;
-        logger.info("Resetting working tree took " + TimeUnit.NANOSECONDS.toSeconds(durationReset) + "seconds");
+        logger.info("Resetting working tree took " + TimeUnit.NANOSECONDS.toSeconds(durationReset) + " seconds");
 
         System.out.println("----------------------------------------------------");
     }
@@ -138,7 +142,7 @@ public class ContainerCoordinator {
         }
         long endTimeConan = System.nanoTime();
         long durationConan = endTimeConan - startTimeConan;
-        logger.info("Installing dependencies took" + TimeUnit.NANOSECONDS.toSeconds(durationConan) + "seconds");
+        logger.info("Installing dependencies took " + TimeUnit.NANOSECONDS.toSeconds(durationConan) + " seconds");
 
         System.out.println("----------------------------------------------------");
 
@@ -158,7 +162,7 @@ public class ContainerCoordinator {
             }
             long endTimeFolderPrep = System.nanoTime();
             long durationFolderPrep = endTimeFolderPrep - startTimeFolderPrep;
-            logger.info("Build folder preparation took" + TimeUnit.NANOSECONDS.toSeconds(durationFolderPrep) + "seconds");
+            logger.info("Build folder preparation took " + TimeUnit.NANOSECONDS.toSeconds(durationFolderPrep) + " seconds");
 
             System.out.println("----------------------------------------------------");
 
@@ -183,7 +187,7 @@ public class ContainerCoordinator {
             }
             long endTimeCMakePrep = System.nanoTime();
             long durationCMakePrep = endTimeCMakePrep - startTimeCMakePrep;
-            logger.info("CMake preparation took" + TimeUnit.NANOSECONDS.toSeconds(durationCMakePrep) + "seconds");
+            logger.info("CMake preparation took " + TimeUnit.NANOSECONDS.toSeconds(durationCMakePrep) + " seconds");
 
             System.out.println("----------------------------------------------------");
             if(exitVal3 == 0) {
@@ -206,7 +210,7 @@ public class ContainerCoordinator {
                 }
                 long endTimeCMakeBuild = System.nanoTime();
                 long durationCMakeBuild = endTimeCMakeBuild - startTimeCMakeBuild;
-                logger.info("CMake build took" + TimeUnit.NANOSECONDS.toSeconds(durationCMakeBuild) + "seconds");
+                logger.info("CMake build took " + TimeUnit.NANOSECONDS.toSeconds(durationCMakeBuild) + " seconds");
 
                 System.out.println("----------------------------------------------------");
             }
@@ -228,7 +232,7 @@ public class ContainerCoordinator {
         lsLib = FileHelper.getAllFileNamesOfDir(Config.CONTAINERPATH +  "/" + rMetaData.getName() + "/buildDest/lib");
         lsAr = FileHelper.getAllFileNamesOfDir(Config.CONTAINERPATH +  "/" + rMetaData.getName() + "/buildDest/ar");
         System.out.println("Build summary:\n" + lsExe.size() + " Executables\n" + lsLib.size() + " Libraries\n" + lsAr.size() + " Archives");
-        logger.info("Build summary:\n" + lsExe.size() + " Executables\n" + lsLib.size() + " Libraries\n" + lsAr.size() + " Archives");
+        logger.info("Build summary: " + lsExe.size() + " Executables " + lsLib.size() + " Libraries " + lsAr.size() + " Archives");
         System.out.println("----------------------------------------------------");
 
         rMetaData.setExecutables(lsExe.size());
@@ -254,7 +258,7 @@ public class ContainerCoordinator {
         System.out.println("----------------------------------------------------");
         long endTimeExtractLLVMIR = System.nanoTime();
         long durationExtractLLVMIR = endTimeExtractLLVMIR - startTimeExtractLLVMIR;
-        logger.info("Extracting & disassambling all build targets into LLVM IR took " + TimeUnit.NANOSECONDS.toSeconds(durationExtractLLVMIR) + "seconds");
+        logger.info("Extracting and disassambling all build targets into LLVM IR took " + TimeUnit.NANOSECONDS.toSeconds(durationExtractLLVMIR) + " seconds");
 
         return llFilePathList;
     }
@@ -334,7 +338,7 @@ public class ContainerCoordinator {
         }
         long endTimeAnalysis = System.nanoTime();
         long durationAnalysis = endTimeAnalysis - startTimeAnalysis;
-        logger.info("Analysis of all LLVM IR files took " + TimeUnit.NANOSECONDS.toSeconds(durationAnalysis) + "seconds");
+        logger.info("Analysis of all LLVM IR files took " + TimeUnit.NANOSECONDS.toSeconds(durationAnalysis) + " seconds");
 
     }
 
