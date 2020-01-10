@@ -273,21 +273,21 @@ public class ContainerCoordinator {
                 processBuilder.command("bash", "-c", "cd " + Config.CONTAINERPATH +  "/" + rMetaData.getName() + "/buildDest/exe/ && extract-bc --linker llvm-link-8 " + fileName);
                 exitVal = ProcessHelper.executeProcess(processBuilder, this);
                 succMsg = "Writing output to: " + fileName + ".bc";
-                errMsg  = "Failed to extract LLVM BITCODE!";
+                errMsg  = "FAILED: EXTRACT LLVM BITCODE";
                 break;
             case "LIB":
                 System.out.println("EXTRACTING LLVM BITCODE (*.bc) FILE FROM LIBRARY: "+ fileName);
                 processBuilder.command("bash", "-c", "cd " + Config.CONTAINERPATH +  "/" + rMetaData.getName() + "/buildDest/lib/ && extract-bc --linker llvm-link-8 " + fileName);
                 exitVal = ProcessHelper.executeProcess(processBuilder, this);
                 succMsg = "Writing output to: " + fileName + ".bc";
-                errMsg  = "Failed to extract LLVM BITCODE!";
+                errMsg  = "FAILED: EXTRACT LLVM BITCODE";
                 break;
             case "AR":
                 System.out.println("EXTRACTING LLVM BITCODE MODULE (*a.bc) FILE FROM ARCHIVE: "+ fileName);
                 processBuilder.command("bash", "-c", "cd " + Config.CONTAINERPATH +  "/" + rMetaData.getName() + "/buildDest/ar/ && extract-bc -b --archiver llvm-ar-8 --linker llvm-link-8 " + fileName + " 2>&1");
                 exitVal = ProcessHelper.executeProcess(processBuilder, this);
                 succMsg = "Writing output to: " + fileName + ".bc";
-                errMsg  = "Failed to extract LLVM BITCODE!";
+                errMsg  = "FAILED: EXTRACT LLVM BITCODE";
                 break;
             default:
                 System.err.println("ERROR: Unknown build target.");
@@ -318,7 +318,7 @@ public class ContainerCoordinator {
             System.out.println("Writing output to: " + fileName + ".ll");
             llFileList.add(pathTollFile);
         } else {
-            System.err.println("Failed to extract LLVM IR!");
+            System.err.println("FAILED: LLVM IR DISASSEMBLE");
         }
         System.out.println("----------------------------------------------------");
         return exitVal;
