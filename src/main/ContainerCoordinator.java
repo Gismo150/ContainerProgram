@@ -13,6 +13,10 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
+/**
+ * The ContainerCoordinator class that implements all required build steps for an automatic repository evaluation.
+ * @author Daniel Braun
+ */
 public class ContainerCoordinator {
     private ProcessBuilder processBuilder;
     private ArrayList<String> errorMessages;
@@ -31,6 +35,10 @@ public class ContainerCoordinator {
         conanDependencies = new ArrayList<>();
     }
 
+    /**
+     * Main entry function that must be called on construction to start the build pipeline.
+     * @param arrayIndex The index to the repository within the repositories.json file.
+     */
     public void run(int arrayIndex) {
         JsonReader.getInstance().checkArgInRange(arrayIndex);
 
@@ -75,6 +83,10 @@ public class ContainerCoordinator {
         System.out.println("----------------------------------------------------");
     }
 
+    /**
+     * Cloning, init submodules and reset working tree.
+     * @param rMetaData The Metadata read from the JSON-file.
+     */
     private void cloneRepository(RMetaData rMetaData) {
         long startTimeCloning   = System.nanoTime();
         processBuilder.command("bash", "-c", "cd " + Config.CONTAINERPATH + " && git clone " + rMetaData.getCloneUrl() + " 2>&1");
@@ -124,6 +136,10 @@ public class ContainerCoordinator {
         System.out.println("----------------------------------------------------");
     }
 
+    /**
+     * Install dependencies, prepare build folders, generate build files and compile.
+     * @param rMetaData The metadata read from the json file.
+     */
     private void compile(RMetaData rMetaData) {
 
         System.out.println("RUNNING: CONAN INSTALL");
@@ -217,6 +233,12 @@ public class ContainerCoordinator {
         }
     }
 
+    /**
+     * Collect the build targets (from buildDest folder).
+     * Run the WLLVM tool extract bc and disassemble to LLVM IR.
+     * @param rMetaData The metadata read from the json file
+     * @return ArrayList of file paths to the LLVM IR files.
+     */
     private ArrayList<String> gatherBuildTargetsAndExtractLLVMIR(RMetaData rMetaData) {
 
         long startTimeExtractLLVMIR = System.nanoTime();
@@ -263,6 +285,13 @@ public class ContainerCoordinator {
         return llFilePathList;
     }
 
+    /**
+     * Extract the LLVM bitcode files from the build targets.
+     * @param target The build target, either exe, lib or ar.
+     * @param fileName The path and filename to the build target file.
+     * @param rMetaData The metadata read from the json file.
+     * @return Returns an int indicating the exit code.
+     */
     private int extractBC(String target, String fileName, RMetaData rMetaData) {
         String succMsg = "";
         String errMsg = "";
@@ -306,6 +335,12 @@ public class ContainerCoordinator {
         return exitVal;
     }
 
+    /**
+     * Disassembling all LLVM bitcode files into LLVM IR.
+     * @param llFileList ArrayList that stores the paths to the generated LLVM IR files.
+     * @param fileName Path to the LLVM bitcode that gets disassembled.
+     * @return Returns an int indicating the exit code of the llvm-dis tool.
+     */
     private int disassambleToll(ArrayList<String> llFileList, String fileName){
         String pathTollFile = "";
         int exitVal = 1;
@@ -324,6 +359,10 @@ public class ContainerCoordinator {
         return exitVal;
     }
 
+    /**
+     * Running the specified analysis tool on the list of LLVM IR files.
+     * @param llFileList List of paths to the LLVM IR files.
+     */
     private void runAnalysis(ArrayList<String> llFileList) {
         long startTimeAnalysis = System.nanoTime();
         System.out.println("RUNNING ANALYSIS");
@@ -342,6 +381,10 @@ public class ContainerCoordinator {
 
     }
 
+    /**
+     * Deletes the cloned repository.
+     * @param rMetaData The metadata read from the json
+     */
     private void cleanSharedDir(RMetaData rMetaData) {
         System.out.println("----------------------------------------------------");
         processBuilder.command("bash", "-c", "cd " + Config.CONTAINERPATH + " && rm -f -r ./" + rMetaData.getName());
@@ -355,6 +398,11 @@ public class ContainerCoordinator {
         System.out.println("----------------------------------------------------");
     }
 
+    /**
+     * Update the metadata at a specific index.
+     * @param rMetaData The updated metadata.
+     * @param arrayIndex The index within the repositories.json file.
+     */
     private void updateMetaData(RMetaData rMetaData, int arrayIndex){
         JsonWriter.getInstance().updateRepositoryInJsonArray(rMetaData, arrayIndex);
     }
