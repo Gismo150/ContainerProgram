@@ -54,7 +54,6 @@ public class ContainerCoordinator {
         if(localBuildStatus.equals("SUCCESS"))
             runAnalysis(gatherBuildTargetsAndExtractLLVMIR(rMetaData));
 
-        cleanSharedDir(rMetaData);
         rMetaData.setPackageDependencies(conanDependencies);
         rMetaData.setErrorMessage(errorMessages);
         updateMetaData(rMetaData, arrayIndex);
@@ -367,7 +366,7 @@ public class ContainerCoordinator {
         long startTimeAnalysis = System.nanoTime();
         System.out.println("RUNNING ANALYSIS");
         for(String llFile: llFileList) {
-            processBuilder.command("bash", "-c", "umask 0000 && ./"+ Config.ANALYSISTOOL + " ./.."+ llFile + " ./.." + Config.CONTAINERPATH);
+            processBuilder.command("bash", "-c", "./"+ Config.ANALYSISTOOL + " ./.."+ llFile + " ./.." + Config.CONTAINERPATH);
             int exitVal = ProcessHelper.executeProcess(processBuilder, this);
             if (exitVal == 0) {
                 System.out.println("ANALYSIS SUCCESS FOR: " + llFile);
@@ -381,22 +380,6 @@ public class ContainerCoordinator {
 
     }
 
-    /**
-     * Deletes the cloned repository.
-     * @param rMetaData The metadata read from the json
-     */
-    private void cleanSharedDir(RMetaData rMetaData) {
-        System.out.println("----------------------------------------------------");
-        processBuilder.command("bash", "-c", "cd " + Config.CONTAINERPATH + " && rm -f -r ./" + rMetaData.getName());
-
-        int exitVal1 = ProcessHelper.executeProcess(processBuilder, this);
-        if (exitVal1 == 0) {
-            System.out.println("Repository has been deleted!");
-        } else {
-            System.err.println("Failed to delete repository!");
-        }
-        System.out.println("----------------------------------------------------");
-    }
 
     /**
      * Update the metadata at a specific index.
